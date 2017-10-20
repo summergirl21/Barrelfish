@@ -3,7 +3,7 @@
 
 // hardcoded for ARM pmap (should get from pmap)
 #define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024) // 1G
-
+//#define 2MB 20480u
 static bool is_in_pmap(genvaddr_t vaddr)
 {
     struct pmap *pmap = get_current_pmap();
@@ -27,6 +27,21 @@ static errval_t alloc_4k(struct capref *retframe)
     return SYS_ERR_OK;
 }
 
+static errval_t alloc_2mb(struct capref *retframe)
+{
+    assert(retframe);
+    size_t frame_sz = 20480u;
+    errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc");
+        return err;
+    }
+    if (frame_sz > 20480) {
+        printf("alloc_2mb: wasting %zu bytes of memory\n", frame_sz - 20480);
+    }
+    return SYS_ERR_OK;
+}
+
 static errval_t handle_pagefault(void *addr)
 {
     errval_t result = SYS_ERR_OK;
@@ -38,13 +53,16 @@ static errval_t handle_pagefault(void *addr)
         } else {
             printf("handle_pagefault: no mapping for address, allocating frame\n");
             struct capref frame;
-            err = alloc_4k(&frame);
+            err = alloc_2mb(&frame);
+		    //alloc_4k(&frame);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "alloc_4k");
             }
             struct pmap *pmap = get_current_pmap();
-            err = pmap->f.map(pmap, vaddr, frame, 0, 4096,
-                              VREGION_FLAGS_READ_WRITE, NULL, NULL);
+        //    err = pmap->f.map(pmap, vaddr, frame, 0, 4096,
+        //                      VREGION_FLAGS_READ_WRITE, NULL, NULL);
+            err = pmap->f.map(pmap, vaddr, frame, 0, 20480,
+                              VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE, NULL, NULL);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "pmap->f.map");
             }

@@ -90,7 +90,7 @@ armeb_cxx      = armeb_gnu_tool "g++"
 
 -- X86 (32/64) toolchain
 x86_gnu_tool = findTool (toolPath x86_tools) (toolPrefix x86_tools)
-x86_cc       = x86_gnu_tool "gcc"
+x86_cc       = x86_gnu_tool "gcc-5"
 x86_objcopy  = x86_gnu_tool "objcopy"
 x86_objdump  = x86_gnu_tool "objdump"
 x86_ar       = x86_gnu_tool "ar"
@@ -162,7 +162,7 @@ trace = False
 
 -- Enable QEMU networking. (ie. make network work in small memory)
 support_qemu_networking :: Bool
-support_qemu_networking  = False
+support_qemu_networking  = True
 
 -- enable network tracing
 trace_network_subsystem :: Bool
