@@ -17,5 +17,11 @@
 int main(int argc, char *argv[]) 
 {
 	printf("Hello World\n");
+	// allocate  4Mb worth of stack memory, expecting page fault
+	volatile char buffer[4096*1024];
+	buffer[512*4096] = 'c';
+	buffer[4096*100] = 'b';
+
+	printf("done writing \n");
 	return EXIT_SUCCESS;
 }

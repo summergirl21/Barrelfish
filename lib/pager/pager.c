@@ -1,9 +1,9 @@
 #include <pager/pager.h>
 #include <stdio.h>
-
+// #define LARGE_PAGE_PFAULT
 // hardcoded for ARM pmap (should get from pmap)
 #define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024) // 1G
-//#define 2MB 20480u
+//#define 2MB 2097152u
 static bool is_in_pmap(genvaddr_t vaddr)
 {
     struct pmap *pmap = get_current_pmap();
@@ -26,24 +26,25 @@ static errval_t alloc_4k(struct capref *retframe)
     }
     return SYS_ERR_OK;
 }
-
+#ifdef LARGE_PAGE_PFAULT
 static errval_t alloc_2mb(struct capref *retframe)
 {
     assert(retframe);
-    size_t frame_sz = 20480u;
+    size_t frame_sz = 2MB;
     errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame_alloc");
         return err;
     }
-    if (frame_sz > 20480) {
-        printf("alloc_2mb: wasting %zu bytes of memory\n", frame_sz - 20480);
+    if (frame_sz > 2097152) {
+        printf("alloc_2mb: wasting %zu bytes of memory\n", frame_sz - 2097152);
     }
     return SYS_ERR_OK;
 }
-
+#endif
 static errval_t handle_pagefault(void *addr)
 {
+    printf("A pagefault happened \n");
     errval_t result = SYS_ERR_OK;
     errval_t err;
     genvaddr_t vaddr = vspace_lvaddr_to_genvaddr((lvaddr_t)addr);
@@ -53,16 +54,25 @@ static errval_t handle_pagefault(void *addr)
         } else {
             printf("handle_pagefault: no mapping for address, allocating frame\n");
             struct capref frame;
+#ifdef LARGE_PAGE_PFAULT	    
             err = alloc_2mb(&frame);
-		    //alloc_4k(&frame);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "alloc_2mb");
+            }
+#else
+	    err = alloc_4k(&frame);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "alloc_4k");
             }
+#endif	    
             struct pmap *pmap = get_current_pmap();
-        //    err = pmap->f.map(pmap, vaddr, frame, 0, 4096,
-        //                      VREGION_FLAGS_READ_WRITE, NULL, NULL);
-            err = pmap->f.map(pmap, vaddr, frame, 0, 20480,
+#ifdef LARGE_PAGE_PFAULT
+	    err = pmap->f.map(pmap, vaddr, frame, 0, 2097152,
                               VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE, NULL, NULL);
+#else
+            err = pmap->f.map(pmap, vaddr, frame, 0, 4096,
+                              VREGION_FLAGS_READ_WRITE, NULL, NULL);
+#endif
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "pmap->f.map");
             }
