@@ -1,9 +1,9 @@
 #include <pager/pager.h>
 #include <stdio.h>
-// #define LARGE_PAGE_PFAULT
+#define LARGE_PAGE_PFAULT
 // hardcoded for ARM pmap (should get from pmap)
 #define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024) // 1G
-//#define 2MB 2097152u
+#define SZ_2MB 2097152u
 static bool is_in_pmap(genvaddr_t vaddr)
 {
     struct pmap *pmap = get_current_pmap();
@@ -12,8 +12,26 @@ static bool is_in_pmap(genvaddr_t vaddr)
     return err_is_ok(err);
 }
 
+#ifdef LARGE_PAGE_PFAULT
+static errval_t alloc_2mb(struct capref *retframe)
+{
+    printf("allocating 2MB page!\n");
+    assert(retframe);
+    size_t frame_sz = SZ_2MB;
+    errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc");
+        return err;
+    }
+    if (frame_sz > 2097152) {
+        printf("alloc_2mb: wasting %zu bytes of memory\n", frame_sz - 2097152);
+    }
+    return SYS_ERR_OK;
+}
+#else
 static errval_t alloc_4k(struct capref *retframe)
 {
+    printf("allocating 4k page!\n");
     assert(retframe);
     size_t frame_sz = 4096u;
     errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
@@ -23,21 +41,6 @@ static errval_t alloc_4k(struct capref *retframe)
     }
     if (frame_sz > 4096) {
         printf("alloc_4k: wasting %zu bytes of memory\n", frame_sz - 4096);
-    }
-    return SYS_ERR_OK;
-}
-#ifdef LARGE_PAGE_PFAULT
-static errval_t alloc_2mb(struct capref *retframe)
-{
-    assert(retframe);
-    size_t frame_sz = 2MB;
-    errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_alloc");
-        return err;
-    }
-    if (frame_sz > 2097152) {
-        printf("alloc_2mb: wasting %zu bytes of memory\n", frame_sz - 2097152);
     }
     return SYS_ERR_OK;
 }
@@ -113,6 +116,7 @@ static char internal_ex_stack[INTERNAL_STACK_SIZE];
 
 errval_t pager_install_handler(char *ex_stack, size_t stack_size)
 {
+    printf("in page_install_handler\n");
     // setup exception stack pointers
     char *ex_stack_top = NULL;
     if (ex_stack && stack_size >= 4096u) {

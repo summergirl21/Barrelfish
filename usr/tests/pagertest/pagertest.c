@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[])
 {
+    printf("starting pagertest\n");
     errval_t err;
     err = pager_install_handler(NULL, 0);
     if (err_is_fail(err)) {
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
     }
     printf("checking region\n");
     for (int i = 0; i < size; i++) {
-        assert(buf[i] == i % 0xff);
+        assert((unsigned char)buf[i] == i % 0xff);
     }
 
     printf("pagertest completed successfully!\n");
