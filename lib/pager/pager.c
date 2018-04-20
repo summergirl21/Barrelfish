@@ -1,9 +1,11 @@
 #include <pager/pager.h>
 #include <stdio.h>
 #define LARGE_PAGE_PFAULT
+#define HUGE_PAGE_ALLOC
 // hardcoded for ARM pmap (should get from pmap)
 #define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024) // 1G
 #define SZ_2MB 2097152u
+//#define SZ_1GB 2097152u
 static bool is_in_pmap(genvaddr_t vaddr)
 {
     struct pmap *pmap = get_current_pmap();
@@ -11,6 +13,25 @@ static bool is_in_pmap(genvaddr_t vaddr)
     errval_t err = pmap->f.lookup(pmap, vaddr, NULL);
     return err_is_ok(err);
 }
+
+#ifdef HUGE_PAGE_ALLOC
+//define function to request contiguous chunck of memory
+static errval_t alloc_contiguous(struct capref *retframe, size_t request_size)
+{
+    printf("allocating %d page!\n");
+    assert(retframe);
+    size_t frame_sz = request_size;  //change this
+    errval_t err = frame_alloc(retframe, frame_sz, &frame_sz);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc");
+        return err;
+    }
+    if (frame_sz > request_size) {
+        printf("alloc_contiguous: wasting %zu bytes of memory\n", frame_sz - 2097152);
+    }
+    return SYS_ERR_OK;
+}
+#else
 
 #ifdef LARGE_PAGE_PFAULT
 static errval_t alloc_2mb(struct capref *retframe)
@@ -116,6 +137,8 @@ static char internal_ex_stack[INTERNAL_STACK_SIZE];
 
 errval_t pager_install_handler(char *ex_stack, size_t stack_size)
 {
+
+//TODO request larger contiguous peace of memory here for management/compaction later
     printf("in page_install_handler\n");
     // setup exception stack pointers
     char *ex_stack_top = NULL;
